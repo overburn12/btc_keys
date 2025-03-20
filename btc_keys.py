@@ -10,7 +10,10 @@ import base58
 
 
 def generate_random_private_key() -> str:
-    return binascii.hexlify(os.urandom(32)).decode()
+    while True:
+        private_key_int = int.from_bytes(os.urandom(32), 'big')
+        if 1 <= private_key_int < secp256k1.N:  # Ensure it's within the valid range
+            return format(private_key_int, '064x')
 
 
 def private_key_to_public_key(private_key_hex: str, compressed: bool = False) -> str:
