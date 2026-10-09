@@ -7,6 +7,11 @@ import btc_keys
 #----------------------------
 
 
+def save_keys(private_key, p2pkh_address, file_name):
+    with open(file_name, 'a') as file:
+        file.write(f"{private_key}, {p2pkh_address}\n")
+
+
 def find_vanity_worker(vanity_words, iterations_per_worker, queue):
     last_time = time.time()
     iteration = 0
@@ -17,7 +22,7 @@ def find_vanity_worker(vanity_words, iterations_per_worker, queue):
         
         # Check if the address starts with any of the vanity words
         for vanity_word in vanity_words:
-            if p2pkh_address.startswith('1' + vanity_word):
+            if p2pkh_address.startswith(vanity_word):
                 queue.put((True, {
                     "iteration": iteration,
                     "vanity_word": vanity_word,
@@ -44,18 +49,23 @@ def find_vanity_worker(vanity_words, iterations_per_worker, queue):
     }))
 
 
-def find_vanity(vanity_words, num_processes=4, iterations_per_worker=100000):
+def find_vanity(vanity_words, num_processes=4, max_iterations=1000000):
     queue = multiprocessing.Queue()
     start_time = time.time()
     print_interval = 5.0
     total_iterations = 0
     last_time_check = start_time
     last_iterations = total_iterations
+
+    iterations_per_worker = max_iterations / num_processes
+
+    #pre-add the '1' to make the searching slightly more eifficent
+    vanity_words2 = ['1' + word for word in vanity_words]
     
     # Start worker processes
     worker_processes = []
     for _ in range(num_processes):
-        worker = multiprocessing.Process(target=find_vanity_worker, args=(vanity_words, iterations_per_worker, queue))
+        worker = multiprocessing.Process(target=find_vanity_worker, args=(vanity_words2, iterations_per_worker, queue))
         worker.start()
         worker_processes.append(worker)
     print(f"loaded {num_processes} workers")
@@ -75,6 +85,9 @@ def find_vanity(vanity_words, num_processes=4, iterations_per_worker=100000):
                 print(f"Vanity Word: {data['vanity_word']}")
                 print("Private Key:", data['private_key'])
                 print("P2PKH Address:", data['p2pkh_address'])
+
+                save_keys(data['private_key'], data['p2pkh_address'], 'keys.txt')
+
                 for worker in worker_processes:
                     worker.terminate()
                 return
@@ -102,6 +115,6 @@ def find_vanity(vanity_words, num_processes=4, iterations_per_worker=100000):
 #--------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    vanity_words = ['Bitcoin', 'Nick', 'Kane']
-    find_vanity(vanity_words, num_processes=multiprocessing.cpu_count() - 10, iterations_per_worker=100000)
+    vanity_words = ['Bitcoin', 'Protogen', 'Furry', 'NickKane', 'Coffee']
+    find_vanity(vanity_words, num_processes=multiprocessing.cpu_count() - 2, max_iterations=100000000)
 
